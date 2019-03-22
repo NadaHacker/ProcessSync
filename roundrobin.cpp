@@ -48,6 +48,7 @@ void checkDeleteQueue(vector<Process> & queue, int i);
 
 Process init;
 Process current;
+int quantumInit;
 int quantum;
 vector<Process> rq;
 vector<Process> wq;
@@ -58,7 +59,8 @@ int main(int argc, char* argv[]){
     exit(1); // maybe check if 0 or 1
   }
 
-  quantum = atoi(argv[2]);
+  quantumInit = atoi(argv[2]);
+  quantum = quantumInit;
   string command;
   ifstream inputFile(argv[1]);
   if (inputFile.is_open()){
@@ -117,7 +119,7 @@ void runCommand(string command){
     if (current.pid != 0){
       quantum--;
       if (quantum == 0){
-      	quantum = 3;
+      	quantum = quantumInit;
 	current.burst--;
       	rq.push_back(current);
       	cout << "PID " << current.pid << " " << current.burst
@@ -131,7 +133,7 @@ void runCommand(string command){
       	if (current.burst == 0){
       	  burstDelete();
       	  current = (rq.size() != 0) ? rq[0] : init;
-      	  quantum = 3;
+      	  quantum = quantumInit;
       	  if (current.pid != 0)
       	    rq.erase(rq.begin());
       	}
@@ -180,7 +182,7 @@ void runCommand(string command){
     if (current.pid != 0){
       current.burst--;
       burstDelete();
-      quantum = 3;
+      quantum = quantumInit;
       current.eventID = stoi(function(command, 2));
       wq.push_back(current);
       cout << "PID " << current.pid << " " << current.burst
@@ -261,7 +263,7 @@ void createProcess(int pid, int burst){
   if (current.pid == 0) {
       current = newProcess;
       rq.pop_back();
-      quantum = 3;
+      quantum = quantumInit;
   }
   else 
     runCommand("I");
