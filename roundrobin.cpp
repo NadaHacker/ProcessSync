@@ -7,14 +7,9 @@
 /*
 
 OTI:
-The E command only works for single bit digits. We have not changed this
- like in the other places such as C and W.
 
 The output needs to be to a log file with all three dat files as inputs
 with each with quantum 1,5,10-------check if these work and we are good
-
-Quantom will be tested with 1, 5, and 10 and ours is specific to 3 so major
-problems
 
 Deleting children of children
 
@@ -112,7 +107,8 @@ void runCommand(string command){
       createProcess(stoi(function(command, 2)),
 		    stoi(function(command, function(command, 2).size()+2)));
     break;
-  case 'D': 
+  case 'D':
+    int pidToDelete = stoi(function(command, 2));
     runCommand("I");
     break;
   case 'I':
@@ -195,7 +191,7 @@ void runCommand(string command){
   case 'E':
     runCommand("I");
     for(int i = 0; i < wq.size(); i++){
-      if (wq.at(i).eventID == (command[2]-'0')) {
+      if (wq.at(i).eventID == stoi(function(command, 2))/*(command[2]-'0')*/) {
   	rq.push_back(wq.at(i));
   	cout << "PID " << wq.at(i).pid << " " << wq.at(i).burst
   	     << " placed on Ready Queue" << endl;
