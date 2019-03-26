@@ -37,12 +37,13 @@ void initialize();
 void printStatus();
 void runCommand(string command);
 void createProcess(int pid, int burst);
-void burstDelete();
+void burstDelete(Process parent);
 vector<string> seperate(string str, char delim);
 void checkDeleteQueue(vector<Process> & queue, int i);
+void terminate(vector<Process> & queue, int pidToDelete);
 
 Process init;
-Process current;
+Process *current;
 int quantumInit;
 int quantum;
 vector<Process> rq;
@@ -65,8 +66,8 @@ int main(int argc, char* argv[]){
       cout << command << endl;
       
       runCommand(command);
-      if (current.pid != 0){
-	cout << "PID " << current.pid << " " << current.burst
+      if ((*current).pid != 0){
+	cout << "PID " << current->pid << " " << current->burst
 	   << " running with " << quantum << " left" << endl;
       }
       else
@@ -74,16 +75,6 @@ int main(int argc, char* argv[]){
       printStatus(); 
     }
   }
-}
-
-vector<string> seperate(string str, char delim){
-  vector<string> temp;
-  stringstream ss(str);
-  string token;
-  while(getline(ss, token, delim)){
-    temp.push_back(token);
-  }
-  return temp;
 }
 
 string function(string command, int index){
@@ -108,51 +99,56 @@ void runCommand(string command){
 		    stoi(function(command, function(command, 2).size()+2)));
     break;
   case 'D':
-    int pidToDelete = stoi(function(command, 2));
+    //int pidToDelete = stoi(function(command, 2));
     runCommand("I");
     break;
   case 'I':
-    if (current.pid != 0){
-      quantum--;
-      if (quantum == 0){
-      	quantum = quantumInit;
-	current.burst--;
-      	rq.push_back(current);
-      	cout << "PID " << current.pid << " " << current.burst
-       	     << " placed on Ready Queue" << endl;
-       	current = rq[0];
-	current.burst++;
-       	rq.erase(rq.begin());
-      }
-      if (current.burst > 0){
-      	current.burst--;
-      	if (current.burst == 0){
-      	  burstDelete();
-      	  current = (rq.size() != 0) ? rq[0] : init;
-      	  quantum = quantumInit;
-      	  if (current.pid != 0)
-      	    rq.erase(rq.begin());
-      	}
-      }
-      // if (current.burst > 0){
-      // 	current.burst--;
-      // 	if (current.burst == 0){
-      // 	  burstDelete();
-      // 	  current = (rq.size() != 0) ? rq[0] : init;
-      // 	  quantum = 3;
-      // 	  if (current.pid != 0)
-      // 	    rq.erase(rq.begin());
-      // 	}
-      // }
+    cout << current->pid << " " << current->burst << endl;
+    if (current->pid != 0){
       // quantum--;
       // if (quantum == 0){
-      // 	quantum = 3;
+      // 	quantum = quantumInit;
+      // 	current.burst--;
       // 	rq.push_back(current);
       // 	cout << "PID " << current.pid << " " << current.burst
       //  	     << " placed on Ready Queue" << endl;
       //  	current = rq[0];
+      // 	current.burst++;
       //  	rq.erase(rq.begin());
       // }
+      // if (current.burst > 0){
+      // 	current.burst--;
+      // 	cout << current.burst << endl;
+      // 	if (current.burst == 0){
+      // 	  burstDelete(current);
+      // 	  current = (rq.size() != 0) ? rq[0] : init;
+      // 	  quantum = quantumInit;
+      // 	  if (current.pid != 0)
+      // 	    rq.erase(rq.begin());
+      // 	}
+      // }
+      if (current->burst > 0){
+      	current->burst--;
+      	if (current->burst == 0){
+      	  burstDelete(current);
+      	  current = &((rq.size() != 0) ? rq[0] : init);
+      	  quantum = quantumInit;
+      	  if (current->pid != 0)
+      	    rq.erase(rq.begin());
+      	}
+      }
+      quantum--;
+      if (quantum == 0){
+      	quantum = quantumInit;
+      	rq.push_back(*current);
+      	cout << "PID " << current->pid << " " << current->burst
+       	     << " placed on Ready Queue" << endl;
+       	current = &(rq[0]);
+       	rq.erase(rq.begin());
+      }
+      //cout << "pid " << current.pid << " has children size: " <<  current.children.size() << endl;
+      //cout << "pid " << current.children.at(0).pid << " has children size: "
+      //<< current.children.at(0).children.size() << endl;
     }
     break;
       // if (current.burst > 0) {
@@ -175,16 +171,18 @@ void runCommand(string command){
       // 	quantum--;
       // }
   case 'W':
-    if (current.pid != 0){
-      current.burst--;
-      burstDelete();
+    if (current->pid != 0){
+      current->burst--;
+      if (current->burst == 0){
+	burstDelete(*current);
+      }
       quantum = quantumInit;
-      current.eventID = stoi(function(command, 2));
-      wq.push_back(current);
-      cout << "PID " << current.pid << " " << current.burst
+      current->eventID = stoi(function(command, 2));
+      wq.push_back(*current);
+      cout << "PID " << current->pid << " " << current->burst
 	   << " placed on Wait Queue" << endl;
-      current = (rq.size() != 0) ? rq[0] : init;
-      if (current.pid != 0)
+      current = &((rq.size() != 0) ? rq[0] : init);
+      if (current->pid != 0)
 	rq.erase(rq.begin());
     }
     break;
@@ -210,26 +208,60 @@ void runCommand(string command){
     break;
   case 'X':
     cout << "Current state of simulation:" << endl;
-    if (current.pid != 0){
-      cout << "PID " << current.pid << " " << current.burst
+    if (current->pid != 0){
+      cout << "PID " << current->pid << " " << current->burst
   	   << " running with " << quantum << " left" << endl;
     }
-    else
+    else {
       initialize();
+    }
     printStatus();
     exit(0);
     break;
   }
 }
 
-void burstDelete(){
-  if(current.burst == 0) {
-    cout << "PID " << current.pid << " " <<
-      current.burst << " terminated" << endl;
-    for (int i = 0; i < current.children.size(); i++) {
-      checkDeleteQueue(rq, i);
-      checkDeleteQueue(wq, i);
+void terminate(vector<Process> & queue, int pidToDelete){
+  for (int j = 0; j < queue.size(); j++){
+    if(queue.at(j).pid == pidToDelete){
+      cout << "PID " << queue.at(j).pid << " " <<
+	queue.at(j).burst << " terminated" << endl;
+      queue.erase(queue.begin() + j);
+      break;
     }
+  }
+}
+
+void burstDelete(Process *parent){
+  // if(current.burst == 0) {
+  cout << "PID " << current->pid << " " <<
+    current->burst << " terminated" << endl;
+  // for (int i = 0; i < current.children.size(); i++) {
+  //   checkDeleteQueue(rq, i);
+  //   checkDeleteQueue(wq, i);
+  // }
+  //cout << init.pid << " children size " << init.children.size() << endl;
+  //cout << parent.pid << " children size " << parent.children.at(0).children.size() << endl;
+  for (int i = 0; i < parent.children.size(); i++) {
+    Process current_parent = parent.children.at(i);
+    //cout << "Current " <<  current_parent.children.size() << endl;
+    if (current_parent.children.size() > 0) {
+      for(int i = 0; i < current_parent.children.size(); i++) {
+	burstDelete(parent.children.at(i));
+	//cout << "inner burst delete on: " <<  parent.children.at(i).pid << endl;
+      }
+      terminate(rq, current_parent.children.at(i).pid);
+      terminate(wq, current_parent.children.at(i).pid);
+    }
+    terminate(rq, current_parent.pid);
+    terminate(wq, current_parent.pid);
+    // terminate(rq, parent.pid);
+  }
+  terminate(rq, parent.pid);
+  terminate(wq, parent.pid);
+} 
+    
+
       // for (int k = 0; k < wq.size(); k++){
     // 	if(rq.at(k).pid == current.children.at(i).pid){
     // 	  cout << "PID " << wq.at(k).pid << " " <<
@@ -246,28 +278,44 @@ void burstDelete(){
     // 	}
     // 	i++;
     //   }
-    while(current.children.size() != 0){
-      current.children.pop_back();
-    }
-  }
-}
+    // while(current.children.size() != 0){
+    //   current.children.pop_back();
+    // }
+  // }
+// }
 void createProcess(int pid, int burst){
   Process newProcess = {pid, burst, 0};
-  current.children.push_back(newProcess);
-  cout << "PID " << pid << " " << burst << " placed on Ready Queue" << endl;
+  cout << current->pid << "and " << current->burst << endl;
+  current->children.push_back(newProcess);
+  cout << "dfasdfasdfs" << endl;
+  //cout << "pid " << current.pid << " has children size: " <<  current.children.size() << endl;
+  //cout << "pid " << current.children.at(0).pid << " has children size: "
+  // << current.children.at(0).children.size() << endl;
+  //cout << "pid " << current->pid << " obtain child " << newProcess.pid << endl;
+  cout << "PID " << newProcess.pid << " " << newProcess.burst
+       << " placed on Ready Queue" << endl;
+    //cout << "PID " << pid << " " << burst << " placed on Ready Queue" << endl;
   rq.push_back(newProcess);
-  if (current.pid == 0) {
-      current = newProcess;
+  if (current->pid == 0) {
+    current = &(newProcess);
       rq.pop_back();
       quantum = quantumInit;
   }
-  else 
+  // for (int i =0; i< current.children.size();i++){
+  //   cout << "pid " << current.pid << " has child " << current.children.at(i).pid << endl;
+  //   for (int j =0; j< current.children.at(i).children.size();j++){
+  //     cout << "pid " << current.children.at(i).pid << " has child " <<
+  // 	current.children.at(i).children.at(j).pid << endl;
+  //   }
+  // }
+    else
     runCommand("I");
 }
 
 void initialize(){
   init = {0, 1, 0};
   cout << "PID 0 running" << endl;
+  current = &init;
 }
 
 void printStatus(){
@@ -291,7 +339,7 @@ void printStatus(){
 void checkDeleteQueue(vector<Process> & queue, int i){
   vector<int> toBeDeleted;
   for (int j = 0; j < queue.size(); j++){
-    if(queue.at(j).pid == current.children.at(i).pid){
+    if(queue.at(j).pid == current->children.at(i).pid){
       cout << "PID " << queue.at(j).pid << " " <<
 	queue.at(j).burst << " terminated" << endl;
       queue.erase(queue.begin() + j);

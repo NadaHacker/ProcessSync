@@ -1,0 +1,6 @@
+public class Process {
+    protected int pid;
+    protected int burst;
+    protected int eventID;
+    protected List<Integer> children = new ArrayList<Integer>();
+}
