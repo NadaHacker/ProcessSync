@@ -47,19 +47,30 @@ public class ProcessSync {
 	case 'D':
 	    int deletePID = getDigit(command, "first");
 	    if (current.getPID() == deletePID) {
-		System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
+		//System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
 		burstDelete(current);
-	    }
-	    if (current.getChildrenPID().contains(deletePID)){
-		checkDeleteQueue(rq, deletePID);
-		checkDeleteQueue(wq, deletePID);
-	    }
-	    if (rq.size() != 0){
+		if (rq.size() != 0){
 		current = rq.get(0);
 		rq.remove(0);
+		}
+		else {
+		    current = init;
+		}
 	    }
-	    else {
-		current = init;
+	    //System.out.println();
+	    //System.out.println();
+	    //System.out.printf("current pid: %d\n", current.getPID());
+	    else if (current.getChildrenPID().contains(deletePID)){
+		System.out.printf("deletePID: %d\n",deletePID);
+		checkDeleteQueue(rq, deletePID);
+		checkDeleteQueue(wq, deletePID);
+		// if (rq.size() != 0){
+		//     current = rq.get(0);
+		//     rq.remove(0);
+		// }
+		// else {
+		//     current = init;
+		// }
 	    }
 	    runCommand("I");
 	    break;
@@ -78,15 +89,18 @@ public class ProcessSync {
 			    current = init;
 			}
 			quantum = quantumInit;
+			break;
 		    }
 		}
 		quantum = quantum - 1;
 		if (quantum == 0){
 		    quantum = quantumInit;
-		    rq.add(current);
-		    System.out.printf("PID %d %d placed on Ready Queue\n", current.getPID(), current.getBurst());
-		    current = rq.get(0);
-		    rq.remove(0);
+		    //if (current.getPID() != 0) {
+			rq.add(current);
+			System.out.printf("PID %d %d placed on Ready Queue\n", current.getPID(), current.getBurst());
+			current = rq.get(0);
+			rq.remove(0);
+			//}
 		}
 	    }
 	break;
@@ -95,18 +109,28 @@ public class ProcessSync {
 		current.setBurst(current.getBurst()-1);
 		if (current.getBurst() == 0){
 		    burstDelete(current);
-		}
-		quantum = quantumInit;
-		current.setEventID(getDigit(command, "first"));
-		wq.add(current);
-		System.out.printf("PID %d %d placed on Wait Queue \n", current.getPID(), current.getBurst());
-	        if (rq.size() != 0){
-		    current = rq.get(0);
-		    rq.remove(0);
+		    System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
+		    if (rq.size() != 0){
+			    current = rq.get(0);
+			    rq.remove(0);
+			}
+			else {
+			    current = init;
+			}
 		}
 		else {
-		    current = init;
+		    current.setEventID(getDigit(command, "first"));
+		    wq.add(current);
+		    System.out.printf("PID %d %d placed on Wait Queue \n", current.getPID(), current.getBurst());
+		    if (rq.size() != 0){
+			current = rq.get(0);
+			rq.remove(0);
+		    }
+		    else {
+			current = init;
+		    }
 		}
+		quantum = quantumInit;
 	    }
         break;
 	case 'E':
@@ -135,8 +159,11 @@ public class ProcessSync {
 
     public static void checkDeleteQueue(ArrayList<Process> queue, int i){
 	for (int j = 0; j < queue.size(); j++){
-	    if(queue.get(j).getPID() == current.getChildren().get(i).getPID()){
-		System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
+	    //System.out.println(queue.size());
+	    if(queue.get(j).getPID() == i){//current.getChildren().get(i).getPID()){
+		//System.out.println("hi");
+		//System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
+		System.out.printf("PID %d %d terminated\n", queue.get(j).getPID(), queue.get(j).getBurst());
 	        burstDelete(queue.get(j));
 		break;
 	    }
@@ -196,11 +223,22 @@ public class ProcessSync {
 
     public static void burstDelete(Process parent) {
 	//System.out.println(parent.getChildren().size());
+	//System.out.println(parent.getPID());
 	for(int i = 0; i < parent.getChildren().size(); i++) {
 	    Process current_parent = parent.getChildren().get(i);
+	    //System.out.printf("current parent: %d\n",current_parent.getPID());
 	    if (current_parent.getChildren().size() > 0) {
-		for(int j = 0; j < current_parent.getChildren().size(); j++) {
-		    burstDelete(parent.getChildren().get(j));
+		// for(int j = 0; j < current_parent.getChildren().size(); j++) {
+		//     burstDelete(parent.getChildren().get(j));
+		//     System.out.println("hi");
+		// }
+		for (int j = current_parent.getChildren().size()-1; j >= 0; j--){
+		    // System.out.printf("pid deleting: %d\n",parent.getChildren().get(j).getPID());
+		    //System.out.printf("j: %d\n",j);
+		    //System.out.println(current_parent.getChildren().get(j).getPID());
+		    //System.out.println("hi");
+		    burstDelete(current_parent.getChildren().get(j));
+		    //System.out.println("hi");
 		}
 		terminate(rq, current_parent.getChildren().get(i).getPID());
 		terminate(wq, current_parent.getChildren().get(i).getPID());
@@ -214,10 +252,15 @@ public class ProcessSync {
     
     
     public static void terminate(ArrayList<Process> queue, int pidToDelete) {
+	//System.out.printf("PID %d should be deleted\n",pidToDelete);
 	for (int j = 0; j < queue.size(); j++) {
+	    //System.out.printf("current queue pid: %d, pidToDelete: %d\n", queue.get(j).getPID(), pidToDelete);
 	    if(queue.get(j).getPID() == pidToDelete) {
 		System.out.printf("PID %d %d terminated\n", queue.get(j).getPID(), queue.get(j).getBurst());
 		queue.remove(j);
+		//	System.out.printf("j: %d and j-1: %d \n", j, j-1);
+		//j--;
+		//System.out.println(j);
 		break;
 	    }
 	}
