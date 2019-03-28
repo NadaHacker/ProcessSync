@@ -10,84 +10,73 @@ public class ProcessSync {
     public static int quantum;
     public static ArrayList<Process> rq = new ArrayList<Process>();
     public static ArrayList<Process> wq = new ArrayList<Process>();
+    public static PrintWriter writer;
     
-    public static void main(String [] args) throws Exception{
+    public static void main(String [] args) throws java.io.IOException {
 	if (args.length != 2){
 	    System.out.printf("USAGE: %s <input_file> <quantum_size>\n",args[0]);
 	    System.exit(0);
 	}
+        writer = new PrintWriter("test3_Q10.txt", "UTF-8");
         quantumInit = Integer.parseInt(args[1]);
 	quantum = quantumInit;
 	String command;
 	File inputFile = new File(args[0]);
-	BufferedReader br = new BufferedReader(new FileReader(inputFile));
-	if (inputFile.isFile() && inputFile.canRead()){
-	    initialize();
-	    printStatus();
-	    while((command = br.readLine()) != null){
-		System.out.println(command);
-		runCommand(command);
-		if(current.getPID() != 0){
-		    System.out.printf("PID %d %d running with %d left\n", current.getPID(), current.getBurst(), quantum);
-		}
-		else {
-		    initialize();
-		}
+
+	    BufferedReader br = new BufferedReader(new FileReader(inputFile));
+	    if (inputFile.isFile() && inputFile.canRead()){
+		initialize();
 		printStatus();
+		while((command = br.readLine()) != null){
+		    writer.println(command);
+		    writer.flush();
+		    // try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("filename.txt"), "utf-8"))) {
+		    // 	writer.write("something");
+		    // }
+		    //System.out.println(command);
+		    runCommand(command);
+		    printRunning();
+		    printStatus();
+		}
 	    }
-	}
+	// } catch (FileNotFoundException e) {
+	//     e.printStackTrace();
+	// }
+	writer.close();
     }
 
     public static void runCommand(String command){
-	String cmd = "  ";
 	switch(command.charAt(0)) {
 	case 'C':
 	    createProcess(getDigit(command, "first"), getDigit(command, "second"));
 	    break;
 	case 'D':
-	    int deletePID = getDigit(command, "first");
-	    if (current.getPID() == deletePID) {
-		//System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
-		burstDelete(current);
-		if (rq.size() != 0){
-		current = rq.get(0);
-		rq.remove(0);
+	    if (current.getPID() != 0){
+		int deletePID = getDigit(command, "first");
+		if (current.getPID() == deletePID) {
+		    writer.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
+		    writer.flush();
+		    burstDelete(current);
+		    resetCurrent();
+		    quantum = quantumInit;
+		    break;
 		}
-		else {
-		    current = init;
+		else if (current.getChildrenPID().contains(deletePID)){
+		    int index = current.getChildrenPID().indexOf(deletePID);
+		    burstDelete(current.getChildren().get(index));
 		}
+		runCommand("I");
 	    }
-	    //System.out.println();
-	    //System.out.println();
-	    //System.out.printf("current pid: %d\n", current.getPID());
-	    else if (current.getChildrenPID().contains(deletePID)){
-		System.out.printf("deletePID: %d\n",deletePID);
-		checkDeleteQueue(rq, deletePID);
-		checkDeleteQueue(wq, deletePID);
-		// if (rq.size() != 0){
-		//     current = rq.get(0);
-		//     rq.remove(0);
-		// }
-		// else {
-		//     current = init;
-		// }
-	    }
-	    runCommand("I");
 	    break;
 	case 'I':
 	    if (current.getPID() != 0){
 		if (current.getBurst() > 0){
 		    current.setBurst(current.getBurst()-1);
 		    if (current.getBurst() == 0){
-			System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
+			writer.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
+			writer.flush();
 			burstDelete(current);
-			if (rq.size() != 0){
-			    current = rq.get(0);
-			    rq.remove(0);
-			}
-			else {
-			    current = init;
-			}
+			resetCurrent();
 			quantum = quantumInit;
 			break;
 		    }
@@ -95,12 +84,11 @@ public class ProcessSync {
 		quantum = quantum - 1;
 		if (quantum == 0){
 		    quantum = quantumInit;
-		    //if (current.getPID() != 0) {
-			rq.add(current);
-			System.out.printf("PID %d %d placed on Ready Queue\n", current.getPID(), current.getBurst());
-			current = rq.get(0);
-			rq.remove(0);
-			//}
+		    rq.add(current);
+		    writer.printf("PID %d %d placed on Ready Queue\n", current.getPID(), current.getBurst());
+		    writer.flush();
+		    current = rq.get(0);
+		    rq.remove(0);
 		}
 	    }
 	break;
@@ -108,27 +96,17 @@ public class ProcessSync {
 	    if (current.getPID() != 0){
 		current.setBurst(current.getBurst()-1);
 		if (current.getBurst() == 0){
+		    writer.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
+		    writer.flush();
 		    burstDelete(current);
-		    System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
-		    if (rq.size() != 0){
-			    current = rq.get(0);
-			    rq.remove(0);
-			}
-			else {
-			    current = init;
-			}
+		    resetCurrent();
 		}
 		else {
 		    current.setEventID(getDigit(command, "first"));
 		    wq.add(current);
-		    System.out.printf("PID %d %d placed on Wait Queue \n", current.getPID(), current.getBurst());
-		    if (rq.size() != 0){
-			current = rq.get(0);
-			rq.remove(0);
-		    }
-		    else {
-			current = init;
-		    }
+		    writer.printf("PID %d %d placed on Wait Queue \n", current.getPID(), current.getBurst());
+		    writer.flush();
+		    resetCurrent();
 		}
 		quantum = quantumInit;
 	    }
@@ -138,107 +116,98 @@ public class ProcessSync {
 	    for (int i = 0; i < wq.size(); i++){
 		if (wq.get(i).getEventID() == getDigit(command, "first")){
 		    rq.add(wq.get(i));
-		    System.out.printf("PID %d %d placed on Ready Queue\n", wq.get(i).getPID(), wq.get(i).getBurst());
+		    writer.printf("PID %d %d placed on Ready Queue\n", wq.get(i).getPID(), wq.get(i).getBurst());
+		    writer.flush();
 		    wq.remove(i);
 		}
 	    }
 	break;
 	case 'X':
-	    System.out.println("Current state of simulation:");
-	    if (current.getPID() != 0){
-		System.out.printf("PID %d %d running with %d left\n", current.getPID(), current.getBurst(), quantum);
-	    }
-	    else {
-		initialize();
-	    }
+	    writer.println("Current state of simulation:");
+	    writer.flush();
+	    printRunning();
 	    printStatus();
 	    System.exit(0);
 	break;
 	}
     }
+    
+    public static void resetCurrent(){
+	if (rq.size() != 0){
+	    current = rq.get(0);
+	    rq.remove(0);
+	}
+	else {
+	    current = init;
+	}
+    }
 
-    public static void checkDeleteQueue(ArrayList<Process> queue, int i){
-	for (int j = 0; j < queue.size(); j++){
-	    //System.out.println(queue.size());
-	    if(queue.get(j).getPID() == i){//current.getChildren().get(i).getPID()){
-		//System.out.println("hi");
-		//System.out.printf("PID %d %d terminated\n", current.getPID(), current.getBurst());
-		System.out.printf("PID %d %d terminated\n", queue.get(j).getPID(), queue.get(j).getBurst());
-	        burstDelete(queue.get(j));
+    public static void terminate(ArrayList<Process> queue, int pidToDelete) {
+	for (int j = 0; j < queue.size(); j++) {
+	    if(queue.get(j).getPID() == pidToDelete) {
+	        writer.printf("PID %d %d terminated\n", queue.get(j).getPID(), queue.get(j).getBurst());
+		writer.flush();
+		queue.remove(j);
 		break;
 	    }
 	}
     }
 
     public static int getDigit(String command, String index){
-	// StringBuilder num = new StringBuilder("");
-        // System.out.println(command.length());
-    	// for (int i = index; i < command.length()-i+1; i++){
-	//     System.out.print(command.charAt(i));
-	//     char c = command.charAt(i);
-	//     System.out.println("hi");
-	//     if (c == ' ')
-	// 	break;
-    	//     num.append(command.charAt(i));
-    	// }
-    	// return num.toString();
 	int res = 0;
         Scanner sc = new Scanner(command);
-	//System.out.println(index);
 	res = sc.useDelimiter("\\D+").nextInt();
 	if (index.equals("second")){
-	    //System.out.println("hi");
 	    res = sc.useDelimiter("\\D+").nextInt();
 	}
-	// else if (index.trim().equals("second")){
-	//     while (sc.hasNextInt()){
-	// 	System.out.println("hi");
-	// 	res = sc.useDelimiter("\\D+").nextInt();
-	//     }
-	// }
 	return res;
     }
     
     public static void initialize(){
-	System.out.println("PID 0 running");
+        writer.println("PID 0 running");
+	writer.flush();
 	current = init;
     }
 
+    public static void printRunning(){
+	if(current.getPID() != 0){
+	    writer.printf("PID %d %d running with %d left\n", current.getPID(), current.getBurst(), quantum);
+	    writer.flush();
+	}
+	else {
+	    initialize();
+	}
+    }
+    
     public static void printStatus(){
-	System.out.print("Ready Queue: ");
+        writer.print("Ready Queue: ");
+	writer.flush();
 	if (rq.size() != 0){
 	    for(int i = 0; i < rq.size(); i++){
-		System.out.printf("PID %d %d ", rq.get(i).getPID(), rq.get(i).getBurst());
+	        writer.printf("PID %d %d ", rq.get(i).getPID(), rq.get(i).getBurst());
+		writer.flush();
 	    }
 	}
-	System.out.println();
-	System.out.print("Wait Queue: ");
+	writer.println();
+	writer.flush();
+	writer.print("Wait Queue: ");
+	writer.flush();
 	if (wq.size() != 0){
 	    for(int i = 0; i < wq.size(); i++){
-	        System.out.printf("PID %d %d %d ", wq.get(i).getPID(), wq.get(i).getBurst(), wq.get(i).getEventID());
+	        writer.printf("PID %d %d %d ", wq.get(i).getPID(), wq.get(i).getBurst(), wq.get(i).getEventID());
+		writer.flush();
 	    }
 	}
-	System.out.println();
+        writer.println();
+	writer.flush();
     }
 
     public static void burstDelete(Process parent) {
-	//System.out.println(parent.getChildren().size());
-	//System.out.println(parent.getPID());
 	for(int i = 0; i < parent.getChildren().size(); i++) {
 	    Process current_parent = parent.getChildren().get(i);
-	    //System.out.printf("current parent: %d\n",current_parent.getPID());
 	    if (current_parent.getChildren().size() > 0) {
-		// for(int j = 0; j < current_parent.getChildren().size(); j++) {
-		//     burstDelete(parent.getChildren().get(j));
-		//     System.out.println("hi");
-		// }
 		for (int j = current_parent.getChildren().size()-1; j >= 0; j--){
-		    // System.out.printf("pid deleting: %d\n",parent.getChildren().get(j).getPID());
-		    //System.out.printf("j: %d\n",j);
-		    //System.out.println(current_parent.getChildren().get(j).getPID());
-		    //System.out.println("hi");
 		    burstDelete(current_parent.getChildren().get(j));
-		    //System.out.println("hi");
 		}
 		terminate(rq, current_parent.getChildren().get(i).getPID());
 		terminate(wq, current_parent.getChildren().get(i).getPID());
@@ -249,27 +218,11 @@ public class ProcessSync {
 	terminate(rq, parent.getPID());
 	terminate(wq, parent.getPID());
     }
-    
-    
-    public static void terminate(ArrayList<Process> queue, int pidToDelete) {
-	//System.out.printf("PID %d should be deleted\n",pidToDelete);
-	for (int j = 0; j < queue.size(); j++) {
-	    //System.out.printf("current queue pid: %d, pidToDelete: %d\n", queue.get(j).getPID(), pidToDelete);
-	    if(queue.get(j).getPID() == pidToDelete) {
-		System.out.printf("PID %d %d terminated\n", queue.get(j).getPID(), queue.get(j).getBurst());
-		queue.remove(j);
-		//	System.out.printf("j: %d and j-1: %d \n", j, j-1);
-		//j--;
-		//System.out.println(j);
-		break;
-	    }
-	}
-    }
-    
-    
+        
     public static void createProcess(int pid, int burst) {
 	Process newProcess = new Process(pid, burst, 0);
-	System.out.printf("PID %d %d placed on Ready Queue\n", pid, burst);
+        writer.printf("PID %d %d placed on Ready Queue\n", pid, burst);
+	writer.flush();
 	current.getChildren().add(newProcess);
 	rq.add(newProcess);
 	if (current.getPID() == 0) {
